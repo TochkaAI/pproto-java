@@ -4,13 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.module.kotlin.isKotlinClass
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
+import java.lang.reflect.Modifier
 import java.net.SocketException
 import java.nio.charset.Charset
 import java.time.OffsetDateTime
@@ -122,6 +122,8 @@ interface ProtocolConnection : AuthHolder, Closeable {
         }
     }
 
+    val objectMapper: ObjectMapper
+
     fun start(): CompletableFuture<Void>
 
     fun registerContentType(type: MessageType, command: String, clazz: Class<*>)
@@ -136,10 +138,14 @@ private class ProtocolConnectionImpl(
     private val taskExecutor: Executor,
     objectMapper: ObjectMapper
 ) : ProtocolConnection {
-    private val enumSerializerModule = SimpleModule()
-
-    private val objectMapper = objectMapper.copy()
+    override val objectMapper: ObjectMapper = objectMapper.copy()
         .registerKotlinModule()
+        .registerModule(SimpleModule().apply {
+            addDeserializer(OffsetDateTime::class.java, UnixOffsetDateTimeDeserializer())
+            addSerializer(OffsetDateTime::class.java, UnixOffsetDateTimeSerializer())
+        })
+
+    private val processedEnumClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
 
     private val startFuture = CompletableFuture<Void>()
 
@@ -174,11 +180,6 @@ private class ProtocolConnectionImpl(
     )
 
     override fun start(): CompletableFuture<Void> {
-        objectMapper.registerModule(SimpleModule().apply {
-            addDeserializer(OffsetDateTime::class.java, UnixOffsetDateTimeDeserializer())
-            addSerializer(OffsetDateTime::class.java, UnixOffsetDateTimeSerializer())
-        })
-        objectMapper.registerModule(enumSerializerModule)
         receiveThread = startReceiveThread()
         return startFuture
     }
@@ -193,7 +194,11 @@ private class ProtocolConnectionImpl(
         val contentType = ContentType(type, command)
         if (contentTypes.containsKey(contentType)) throw RuntimeException("Content type '$contentType' already registered")
         contentTypes[contentType] = clazz
-        registerOrdinalEnumFields(clazz)
+
+        val enumModule = SimpleModule()
+        registerOrdinalEnumFields(clazz, enumModule)
+        objectMapper.registerModule(enumModule)
+
         logger.info("Registered content type $contentType = [${clazz.name}]")
     }
 
@@ -247,16 +252,19 @@ private class ProtocolConnectionImpl(
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun registerOrdinalEnumFields(clazz: Class<*>) {
+    private fun registerOrdinalEnumFields(clazz: Class<*>, module: SimpleModule) {
+        if (clazz in processedEnumClasses) return
+        processedEnumClasses.add(clazz)
+
         for (field in clazz.declaredFields) {
             val type = field.type as Class<Any>
             if (type.isEnum) {
-                enumSerializerModule.addSerializer(type, OrdinalEnumSerializer(type))
-                enumSerializerModule.addDeserializer(type, OrdinalEnumDeserializer(type))
+                module.addSerializer(type, OrdinalEnumSerializer(type))
+                module.addDeserializer(type, OrdinalEnumDeserializer(type))
                 logger.info("Registered ordinal enum serializer for type [${type.name}]")
             }
-            if (type.isKotlinClass() && type.kotlin.isData) {
-                registerOrdinalEnumFields(type)
+            if (!Modifier.isStatic(field.modifiers)) {
+                registerOrdinalEnumFields(type, module)
             }
         }
     }

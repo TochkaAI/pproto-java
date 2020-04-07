@@ -1,5 +1,6 @@
 package ai.tochka.protocol;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.After;
@@ -9,14 +10,25 @@ import org.junit.Test;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.concurrent.*;
 
 public class JavaApiTest {
+    public enum TestEnum {
+        FIRST,
+        SECOND,
+    }
+
     public static class CommandContent {
         public String foo;
         public int bar;
+        public OffsetDateTime date;
+        public TestEnum testEnum;
+        public CommandContent nested;
     }
 
     public static class AnswerContent {
@@ -120,5 +132,25 @@ public class JavaApiTest {
         CommandContent received = server.received.get(60, TimeUnit.SECONDS);
         Assert.assertEquals("event string", received.foo);
         Assert.assertEquals(200, received.bar);
+    }
+
+    @Test
+    public void testJavaSerialization() throws JsonProcessingException {
+        clientConn.registerContentType(MessageType.COMMAND, "serialization", CommandContent.class);
+
+        CommandContent command = new CommandContent();
+        command.foo = "test string";
+        command.bar = 100;
+        command.nested = new CommandContent();
+        command.nested.date = OffsetDateTime.ofInstant(Instant.ofEpochSecond(100), ZoneId.of("UTC"));
+        command.testEnum = TestEnum.FIRST;
+        command.nested.testEnum = TestEnum.SECOND;
+
+        String str = clientConn.getObjectMapper().writeValueAsString(command);
+
+        Assert.assertEquals(
+                "{\"foo\":\"test string\",\"bar\":100,\"date\":null,\"testEnum\":0,\"nested\":{\"foo\":null,\"bar\":0,\"date\":100000,\"testEnum\":1,\"nested\":null}}",
+                str
+        );
     }
 }
