@@ -188,6 +188,9 @@ private class ProtocolConnectionImpl(
         logger.info("Stopping connection thread...")
         running = false
         closeConnection()
+        answerHandlers.values.forEach {
+            it.handler.completeExceptionally(SocketException("Connection closed"))
+        }
     }
 
     override fun registerContentType(type: MessageType, command: String, clazz: Class<*>) {
