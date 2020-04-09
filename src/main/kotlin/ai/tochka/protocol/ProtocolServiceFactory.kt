@@ -3,9 +3,19 @@ package ai.tochka.protocol
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 
+/**
+ * Вспомогательный класс, который создаёт реализации для клиентских интерфейсов.
+ * При вызове методов интерфейсов, запросы отправляются в [connection].
+ */
 class ProtocolServiceFactory(
     private val connection: ProtocolConnection
 ) {
+    /**
+     * Создаёт реализацию интерфейса [iface].
+     * Все методы [iface] должны быть помечены аннотациями [Command] или [Event].
+     * Вызовы этого метода и всех методов [iface] потокобезопасены.
+     * Одновременные запросы из разных потоков к одному [connection] будут выстраиваться в очередь.
+     */
     @Suppress("UNCHECKED_CAST", "unused")
     fun <T> create(iface: Class<T>): T {
         val handlers = iface.methods

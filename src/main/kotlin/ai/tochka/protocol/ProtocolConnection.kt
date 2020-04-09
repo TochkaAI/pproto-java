@@ -100,12 +100,30 @@ data class ContentType(
 
 typealias CommandHandlerCallback = (message: Message) -> Unit
 
+/**
+ * Содержит токен аутентификации приложения.
+ * Можно использовать, чтобы отличать запросы пользователей от системных запросов.
+ */
 interface AuthHolder {
     val auth: Long
 }
 
+/**
+ * Соединение между клиентом и сервером протокола.
+ * Содержит низкоуровневые методы общения по протоколу.
+ * Вызовы всех методов этого интерфейса потокобезопасны.
+ * @see[ProtocolServiceFactory] чтобы создать клиент для отправки команд и событий.
+ * @see[ProtocolListener] чтобы зарегистрировать обработчики запросов и событий.
+ */
 interface ProtocolConnection : AuthHolder, Closeable {
     companion object {
+        /**
+         * Создание соединения.
+         * [properties] Свойства соединения.
+         * [socketFactory] Фабрика сокетов. Используется для начальной установки соединения и переподключения к серверу.
+         * [taskExecutor] Выполняет обработчики команд и событий.
+         * [objectMapper] Сериализует сообщения в JSON для отправки по протоколу.
+         */
         @JvmStatic
         fun create(
             properties: ProtocolProperties,
@@ -122,8 +140,17 @@ interface ProtocolConnection : AuthHolder, Closeable {
         }
     }
 
+    /**
+     * Внутренний [ObjectMapper]. Может быть не равен тому, который был передан в функцию [create].
+     */
     val objectMapper: ObjectMapper
 
+    /**
+     * Инициализация соединения. При вызове этого метода произойдёт первая попытка установить соединение с сервером.
+     * Метод можно вызвать только один раз.
+     * Для остановки соединения нужно вызвать метод [close].
+     * @return [CompletableFuture], который завершится при успешном соединении с сервером.
+     */
     fun start(): CompletableFuture<Void>
 
     fun registerContentType(type: MessageType, command: String, clazz: Class<*>)

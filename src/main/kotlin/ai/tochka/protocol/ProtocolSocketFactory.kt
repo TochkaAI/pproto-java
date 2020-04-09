@@ -12,10 +12,16 @@ interface ProtocolSocket : Closeable {
     val outputStream: OutputStream
 }
 
+/**
+ * Фабрика сокетов для использования в [ProtocolConnection].
+ */
 interface ProtocolSocketFactory {
     fun connect(): ProtocolSocket
 }
 
+/**
+ * Реализация фабрики, которая устанавливает клиентское TCP соединение по адресу [host]:[port].
+ */
 class TcpClientProtocolSocketFactory(
     private val host: String,
     private val port: Int

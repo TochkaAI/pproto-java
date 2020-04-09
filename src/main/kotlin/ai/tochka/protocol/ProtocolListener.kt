@@ -4,11 +4,23 @@ import org.slf4j.LoggerFactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
+/**
+ * Вспомогательный класс, который регистрирует обработчики запросов и событий в [connection].
+ */
 class ProtocolListener(
     private val connection: ProtocolConnection
 ) {
     private val logger = LoggerFactory.getLogger(ProtocolListener::class.java)
 
+    /**
+     * Регистрация обработчика [service] класса [clazz].
+     * Методы [service], которые помечены [CommandHandler] или [EventHandler] будут вызываться,
+     * когда в [connection] придут запросы с соответствующими типами.
+     * Можно зарегистрировать только один обработчик для каждого типа.
+     * Вызов этого метода потокобезопасен.
+     * @see[CommandHandler]
+     * @see[EventHandler]
+     */
     fun <T : Any> connect(service: T, clazz: Class<T>) {
         logger.info("Processing listener [${clazz.name}]")
 
