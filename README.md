@@ -20,9 +20,9 @@ maven:
 
 ```xml
 <dependency>
-	<groupId>ai.tochka</groupId>
-	<artifactId>pproto-java</artifactId>
-	<version>$version</version>
+    <groupId>ai.tochka</groupId>
+    <artifactId>pproto-java</artifactId>
+    <version>$version</version>
 </dependency>
 ```
 
@@ -79,20 +79,20 @@ future.get();
 // Класс описывающий запрос к серверу.
 // Этот класс должен поддерживать сериализацию в JSON.
 class ExampleCommand {
-	public String name;
+    public String name;
 }
 
 // Класс описывающий ответ от сервера.
 // Этот класс должен поддерживать сериализацию в JSON.
 class ExampleAnswer {
-	public String greeting;
+    public String greeting;
 }
 
 interface ExampleService {
-	// Вызов этого метода отправит запрос на сервер с типом команды [type].
+    // Вызов этого метода отправит запрос на сервер с типом команды [type].
     // Ответ от сервера вернётся как результат выполнения метода.
     // Обычно [type] - сгенерированный UUID.
-	@Command(type = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
+    @Command(type = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
     ExampleAnswer hello(ExampleCommand command);
 }
 
@@ -138,13 +138,13 @@ ExampleAnswer answer = service.hello(command);
 // Класс описывающий запрос к серверу.
 // Этот класс должен поддерживать сериализацию в JSON.
 class ExampleCommand {
-	public String name;
+    public String name;
 }
 
 // Класс описывающий ответ от сервера.
 // Этот класс должен поддерживать сериализацию в JSON.
 class ExampleAnswer {
-	public String greeting;
+    public String greeting;
 }
 
 // Класс обработчик входящих запросов
@@ -153,8 +153,8 @@ class GreetingHandler {
     // Этот метод будет вызван, когда на сервер придёт соответствующий запрос.
     // Результат метода - ответ от сервера.
     @CommandHandler(type = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
-	public ExampleAnswer hello(ExampleCommand command) {
-    	ExampleAnswer answer = new ExampleAnswer();
+    public ExampleAnswer hello(ExampleCommand command) {
+        ExampleAnswer answer = new ExampleAnswer();
         answer.greeting = "Hello, " + command.name + "!";
         return answer;
     }
@@ -189,7 +189,7 @@ listener.connect(handler, GreetingHandler.class);
 // Класс описывающий событие.
 // Этот класс должен поддерживать сериализацию в JSON.
 class UserRegisteredEvent {
-	String id;
+    String id;
     String email;
     OffsetDateTime timestamp;
 }
@@ -197,9 +197,9 @@ class UserRegisteredEvent {
 class RegistrationHandler {
     // Метод обрабатывающий событие.
     // Тип возвращаемого значения всегда должен быть void.
-	@EventHandler(type = "d3c95ec0-275a-4015-aaac-d1076507e55c")
+    @EventHandler(type = "d3c95ec0-275a-4015-aaac-d1076507e55c")
     void userRegistered(UserRegisteredEvent event) {
-    	// обработка регистриации
+        // обработка регистриации
     }
 }
 
@@ -221,7 +221,7 @@ listener.connect(handler, RegistrationHandler.class);
 // Класс описывающий событие.
 // Этот класс должен поддерживать сериализацию в JSON.
 class UserRegisteredEvent {
-	String id;
+    String id;
     String email;
     OffsetDateTime timestamp;
 }
@@ -229,7 +229,7 @@ class UserRegisteredEvent {
 interface RegistrationService {
     // Метод посылающий событие.
     // Тип возвращаемого значения всегда должен быть void.
-	@Event(type = "d3c95ec0-275a-4015-aaac-d1076507e55c")
+    @Event(type = "d3c95ec0-275a-4015-aaac-d1076507e55c")
     void userRegistered(UserRegisteredEvent event);
 }
 
