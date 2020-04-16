@@ -13,7 +13,7 @@ Java-реализация RPC-протокола компании [Точка З
 gradle:
 
 ```groovy
-implementation 'ai.tochka:protocol:$version'
+implementation 'ai.tochka:pproto-java:$version'
 ```
 
 maven:
@@ -21,7 +21,7 @@ maven:
 ```xml
 <dependency>
 	<groupId>ai.tochka</groupId>
-	<artifactId>protocol</artifactId>
+	<artifactId>pproto-java</artifactId>
 	<version>$version</version>
 </dependency>
 ```
