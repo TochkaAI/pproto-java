@@ -2,23 +2,30 @@ Java-реализация RPC-протокола компании [Точка З
 
 # Установка
 
-1. Установить библиотеку в локальный Maven репозиторий.
-
-```bash
-./gradlew install
-``` 
-
-2. Добавить зависимость в проект.
-
 gradle:
 
 ```groovy
-implementation 'ai.tochka:pproto-java:$version'
+repositories {
+    jcenter()
+}
+
+dependencies {
+    implementation 'ai.tochka:pproto-java:$version'
+}
 ```
 
 maven:
 
 ```xml
+<repository>
+    <snapshots>
+        <enabled>false</enabled>
+    </snapshots>
+    <id>central</id>
+    <name>bintray</name>
+    <url>http://jcenter.bintray.com</url>
+</repository>
+
 <dependency>
     <groupId>ai.tochka</groupId>
     <artifactId>pproto-java</artifactId>
