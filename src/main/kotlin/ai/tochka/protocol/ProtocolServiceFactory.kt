@@ -86,7 +86,7 @@ class ProtocolServiceFactory(
             var id: String? = null
             try {
                 val content = commandIndex?.let { args?.get(it) }
-                val tag = tagIndex?.let { args?.get(it) as Long }
+                val tag = tagIndex?.let { args?.get(it) as Long? }
 
                 id = connection.sendMessage(Message(
                     type = messageType,

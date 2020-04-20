@@ -2,6 +2,11 @@ package ai.tochka.protocol
 
 import java.lang.reflect.Method
 
+private val tagClasses = setOf(
+    Long::class.javaPrimitiveType!!,
+    Long::class.javaObjectType
+)
+
 internal fun commandIndex(method: Method): Int? {
     val commandParams = method.parameters
         .withIndex()
@@ -20,7 +25,7 @@ internal fun tagIndex(method: Method): Int? {
         throw RuntimeException("Method [$method] has more than one @ai.tochka.Tag parameters")
     }
     val tagParam = tagParams.singleOrNull()
-    if (tagParam != null && tagParam.value.type != Long::class.javaPrimitiveType) {
+    if (tagParam != null && tagParam.value.type !in tagClasses) {
         throw RuntimeException("Parameter [${tagParam.value}] has wrong class, must be Long")
     }
     return tagParam?.index

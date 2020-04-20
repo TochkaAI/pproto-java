@@ -34,11 +34,12 @@ public class JavaApiTest {
     public static class AnswerContent {
         public String foo;
         public long qux;
+        public Long tag;
     }
 
     public interface JavaClient {
         @Command(type = "java-command")
-        AnswerContent javaCommand(@Tag long tag, CommandContent command);
+        AnswerContent javaCommand(@Tag Long tag, CommandContent command);
 
         @Event(type = "java-event")
         void javaEvent(@Tag long tag, CommandContent event);
@@ -48,12 +49,12 @@ public class JavaApiTest {
         public CompletableFuture<CommandContent> received = new CompletableFuture<>();
 
         @CommandHandler(type = "java-command")
-        public AnswerContent javaCommand(@Tag long tag, CommandContent command) {
-            Assert.assertEquals(123, tag);
+        public AnswerContent javaCommand(@Tag Long tag, CommandContent command) {
             Assert.assertEquals(100, command.bar);
             AnswerContent answer = new AnswerContent();
             answer.foo = command.foo;
             answer.qux = 456;
+            answer.tag = tag;
             return answer;
         }
 
@@ -121,9 +122,10 @@ public class JavaApiTest {
         CommandContent command = new CommandContent();
         command.foo = "test string";
         command.bar = 100;
-        AnswerContent answer = client.javaCommand(123, command);
+        AnswerContent answer = client.javaCommand(123L, command);
         Assert.assertEquals("test string", answer.foo);
         Assert.assertEquals(456, answer.qux);
+        Assert.assertEquals(123, answer.tag.longValue());
 
         CommandContent event = new CommandContent();
         event.foo = "event string";
@@ -132,6 +134,24 @@ public class JavaApiTest {
         CommandContent received = server.received.get(60, TimeUnit.SECONDS);
         Assert.assertEquals("event string", received.foo);
         Assert.assertEquals(200, received.bar);
+    }
+
+    @Test
+    public void testNullTag() {
+        ProtocolServiceFactory serviceFactory = new ProtocolServiceFactory(clientConn);
+        JavaClient client = serviceFactory.create(JavaClient.class);
+
+        ProtocolListener listener = new ProtocolListener(serverConn);
+        JavaServer server = new JavaServer();
+        listener.connect(server, JavaServer.class);
+
+        CommandContent command = new CommandContent();
+        command.foo = "test string";
+        command.bar = 100;
+        AnswerContent answer = client.javaCommand(null, command);
+        Assert.assertEquals("test string", answer.foo);
+        Assert.assertEquals(456, answer.qux);
+        Assert.assertNull(answer.tag);
     }
 
     @Test
