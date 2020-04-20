@@ -7,7 +7,7 @@ import java.time.OffsetDateTime
 
 class UnixOffsetDateTimeSerializer : JsonSerializer<OffsetDateTime>() {
     override fun serialize(value: OffsetDateTime, gen: JsonGenerator, serializers: SerializerProvider) {
-        val long = value.toEpochSecond() * 1000
+        val long = value.toInstant().toEpochMilli()
         gen.writeNumber(long)
     }
 }

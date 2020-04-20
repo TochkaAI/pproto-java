@@ -1,5 +1,6 @@
 package ai.tochka.protocol
 
+import com.fasterxml.jackson.module.kotlin.readValue
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Instant
@@ -37,12 +38,15 @@ class SerializationTest : ProtocolTests() {
     fun testDateTime() {
         clientConn.registerContentType(MessageType.COMMAND, "enum", DateTimeWrapper::class.java)
 
-        var value = DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochSecond(100), ZoneId.of("UTC")))
+        var value = DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochMilli(100200), ZoneId.of("UTC")))
         var str = clientConn.objectMapper.writeValueAsString(value)
-        assertEquals("""{"value":100000}""", str)
+        assertEquals("""{"value":100200}""", str)
 
-        value = DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochSecond(1234567), ZoneId.of("UTC")))
+        value = DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1234567), ZoneId.of("UTC")))
         str = clientConn.objectMapper.writeValueAsString(value)
-        assertEquals("""{"value":1234567000}""", str)
+        assertEquals("""{"value":1234567}""", str)
+
+        value = clientConn.objectMapper.readValue(str)
+        assertEquals(DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1234567), ZoneId.of("UTC"))), value)
     }
 }
