@@ -25,3 +25,11 @@ internal fun tagIndex(method: Method): Int? {
     }
     return tagParam?.index
 }
+
+internal fun String.trimWithEllipsis(maxLength: Int): String {
+    return if (this.length > maxLength) {
+        this.take(maxLength - 3) + "..."
+    } else {
+        this
+    }
+}

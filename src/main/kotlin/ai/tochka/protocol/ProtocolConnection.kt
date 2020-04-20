@@ -358,7 +358,7 @@ private class ProtocolConnectionImpl(
 
     private fun send(message: String) = synchronized(sync) {
         val output = connection?.output ?: throw SocketException("Connection not available")
-        logger.info("Sending message: $message")
+        logger.info("Sending message: [${message.trimWithEllipsis(400)}]")
         val messageBytes = message.toByteArray()
         output.writeInt(messageBytes.size)
         output.write(messageBytes)
@@ -374,7 +374,7 @@ private class ProtocolConnectionImpl(
             offset += input.read(bytes, offset, len - offset)
         }
         val message = bytes.toString(Charset.defaultCharset())
-        logger.info("Received message: $message")
+        logger.info("Received message: [${message.trimWithEllipsis(400)}]")
         return message
     }
 
