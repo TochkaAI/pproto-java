@@ -91,7 +91,8 @@ class ProtocolListener(
                             id = message.id,
                             type = MessageType.ANSWER,
                             command = message.command,
-                            content = if (result == Unit) null else result
+                            content = if (result == Unit) null else result,
+                            tags = message.tags
                         )
                     )
                 }
