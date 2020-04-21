@@ -35,19 +35,21 @@ maven:
 
 # Документация
 
-## Инициализация
+## Терминология
 
-Для начала работы с библиотекой нужно создать объект `ProtocolConnection`.
+- Channel - объект, представляющий клиентское или серверное соединение. 
+Channel может переживать переподключения сокетов. 
+С помощью Channel можно создавать сервисы или обработчики запросов. 
+
+- Service - интерфейс, методы которого соответствуют вызовам команд на сервере.
+
+- Handler - класс, методы которого будут вызваны, когда на сервер придёт запрос от клиента.
+
+## Клиент
+
+Чтобы подключиться к серверу нужно создать объект `ClientChannel`.
 
 ```java
-// Свойства подключения.
-// Если ничего не указывать, будут использоваться значения по умолчанию.
-ProtocolProperties properties = new ProtocolProperties();
-
-// Фабрика сокетов, которые будут использоваться для установки соединения.
-// Сейчас доступна только TcpClientProtocolSocketFactory.
-ProtocolSocketFactory socketFactory = new TcpClientProtocolSocketFactory("127.0.0.1", 62062);
-
 // Пул потоков, в котором будут обрабатываться входящие запросы.
 // Кроме этого библиотека создаёт отдельный поток для ожидания сообщений от сервера.
 ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -55,29 +57,21 @@ ExecutorService executor = Executors.newSingleThreadExecutor();
 // Jackson Object Mapper для сериализации запросов и ответов в JSON.
 ObjectMapper mapper = new ObjectMapper();
 
-// Создание соединения.
-// При разрывах связи будет выполнено автоматическое переподключение, используя socketFactory.
-ProtocolConnection connection = ProtocolConnection.create(
-        properties,
-        socketFactory,
-        executor,
-        mapper
-);
+// Реестр зарегистрированных типов данных. Его можно переиспользовать между разными каналами.
+registry = MessageRegistry(mapper);
 
-// Запуск клиента. Метод возвращает future, который завершится после установки соединения с сревером.
-// future никогда не завершится с ошибкой, вместо этого connection будет постоянно пытаться переподключаться к серверу.
-CompletableFuture<void> future = connection.start();
-future.get();
+// Создание соединения на адрес 127.0.0.1:8000
+// При разрывах связи будет выполнено автоматическое переподключение.
+ClientChannel channel = new ClientChannel(
+    "127.0.0.1", 
+    8000, 
+    registry, 
+    executor
+);
 ```
 
-`ProtocolConnection` содержит методы для отправки и получения сообщений. 
-Скорее всего вам не нужно будет использовать его напрямую. 
-Вместо этого используйте высокоуровневые обёртки `ProtocolServiceFactory` и `ProtocolListener`.
-
-## Клиент
-
-Чтобы выполнять запросы к серверу, нужно описать интерфейс и создать его реализацию с помощью фабрики. 
-Такой интерфейс называется сервисом в терминах библиотеки. Каждый метод сервиса описывает запрос к серверу. 
+Чтобы выполнять запросы к серверу, нужно описать интерфейс и создать его реализацию с помощью метода `channel.service`. 
+Каждый метод bynthatqcf описывает запрос к серверу. 
 Возвращаемое значение метода - ответ сервера.
 
 Для примера предположим, что мы обращаемся к серверу, который отвечает на запрос `hello(name)` строкой `"Hello, $name!"`.
@@ -96,24 +90,21 @@ class ExampleAnswer {
 }
 
 interface ExampleService {
-    // Вызов этого метода отправит запрос на сервер с типом команды [type].
+    // Вызов этого метода отправит запрос на сервер с типом команды [id].
     // Ответ от сервера вернётся как результат выполнения метода.
-    // Обычно [type] - сгенерированный UUID.
-    @Command(type = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
+    // Обычно [id] - сгенерированный UUID.
+    @Command(id = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
     ExampleAnswer hello(ExampleCommand command);
 }
 
-// Создание вспомогательного класса, который создаёт реализации интерфейсов.
-// Объект serviceFactory можно переиспользовать во всём приложении.
-ProtocolServiceFactory serviceFactory = new ProtocolServiceFactory(connection);
-
 // Создание реализации интерфейса.
 // При вызове этого метода всегда создаётся новый объект.
-ExampleService service = serviceFactory.create(ExampleService.class);
+ExampleService service = channel.create(ExampleService.class);
 
 // Выполнение запроса к серверу.
 ExampleCommand command = new ExampleCommand();
 command.name = "World";
+
 // answer.greeting = "Hello, World!"
 ExampleAnswer answer = service.hello(command);
 ```
@@ -137,8 +128,29 @@ ExampleAnswer answer = service.hello(command);
 Сервер слушает TCP порт, а клиент подключается к серверу, открывая клиентский TCP сокет. 
 После этого обе стороны могут посылать друг другу запросы. 
 
-Для обработки входящих запросов нужно реализовать их обработчик в виде класса и зарегистрировать его в `connection`. 
-Регистрация выполняется вспомогательным классом `ProtocolListener`.
+Для ожидания соединений от клиента нужно создать объект `ServerChannel` и вызвать метод `listen`.
+
+```java
+// Пул потоков, в котором будут обрабатываться входящие запросы.
+ExecutorService executor = Executors.newSingleThreadExecutor();
+
+// Jackson Object Mapper для сериализации запросов и ответов в JSON.
+ObjectMapper mapper = new ObjectMapper();
+
+// Реестр зарегистрированных типов данных. Его можно переиспользовать между разными каналами.
+registry = MessageRegistry(mapper);
+
+// Создание серверного канала, который слушает запросы от клиентов на порту 8000.
+ServerChannel serverChannel = new ServerChannel(8000, registry, executor);
+
+// Ожидание подключений от клиентов.
+serverChannel.listen(clientChannel -> {
+    // Эта лямбда вызывается в отдельном потоке для каждого соединения.
+    // Здесь нужно зарегистрировать обработчики запросов.
+});
+```
+
+Для обработки входящих запросов нужно реализовать их обработчик в виде класса и зарегистрировать его в `clientChannel`. 
 Для примера реализуем сервер из предыдущего раздела.
 
 ```java
@@ -159,7 +171,7 @@ class GreetingHandler {
     // Метод обрабатывающий запрос `hello`.
     // Этот метод будет вызван, когда на сервер придёт соответствующий запрос.
     // Результат метода - ответ от сервера.
-    @CommandHandler(type = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
+    @CommandHandler(id = "38fc19b9-b8af-4693-a7c1-12bd6e08186a")
     public ExampleAnswer hello(ExampleCommand command) {
         ExampleAnswer answer = new ExampleAnswer();
         answer.greeting = "Hello, " + command.name + "!";
@@ -167,15 +179,11 @@ class GreetingHandler {
     }
 }
 
-// Создание вспомогательного класса, который регистрирует обработчики запросов.
-// Объект listener можно переиспользовать во всём приложении.
-ProtocolListener listener = new ProtocolListener(connection);
-
 // Создание обработчика
 GreetingHandler handler = new GreetingHandler();
 
-// Регистрация обработчика
-listener.connect(handler, GreetingHandler.class);
+// Регистрация обработчика внутри лямбды метода listen
+clientChannel.handler(handler, GreetingHandler.class);
 ```
 
 Если выполнение обработчика запроса завершилось с ошибкой, то можно бросить исключение `ProtocolAnswerException`,
@@ -184,13 +192,13 @@ listener.connect(handler, GreetingHandler.class);
 
 Методы обработчиков могут принимать такие же аргументы как и методы сервосов: тело запроса и теги.
 
-Обработчики запросов вызываются в пуле потоков, который был указан в аргументах функции `ProtocolConnection.create`.
+Обработчики запросов вызываются в пуле потоков, который был указан в аргументах конструктора `ServerChannel`.
 
 ## События
 
 Кроме формата запрос-ответ, протокол поддерживает отправку событий - единичных сообщений, на которые не ожидается ответа.
 
-Чтобы реагировать на события, нужно создать класс обработчик и зарегистрировать его в `ProtocolListener`. Для примера возьмём событие регистрации пользователя.
+Чтобы реагировать на события, нужно создать класс обработчик и зарегистрировать его в `Channel`. Для примера возьмём событие регистрации пользователя.
 
 ```java
 // Класс описывающий событие.
@@ -204,25 +212,22 @@ class UserRegisteredEvent {
 class RegistrationHandler {
     // Метод обрабатывающий событие.
     // Тип возвращаемого значения всегда должен быть void.
-    @EventHandler(type = "d3c95ec0-275a-4015-aaac-d1076507e55c")
+    @EventHandler(id = "d3c95ec0-275a-4015-aaac-d1076507e55c")
     void userRegistered(UserRegisteredEvent event) {
         // обработка регистриации
     }
 }
 
-// Создание вспомогательного класса, который регистрирует обработчики событий
-ProtocolListener listener = new ProtocolListener(connection);
-
 // Создание обработчика
 RegistrationHandler handler = new RegistrationHandler();
 
 // Регистрация обработчика
-listener.connect(handler, RegistrationHandler.class);
+channel.connect(handler, RegistrationHandler.class);
 ```
 
 Методы обработчиков событий ведут себя так же как и обработчики запросов, за исключением отсутствия ответа. Они запускаются в том же пуле потоков и могут принимать такие же аргументы.
 
-Чтобы отправить событие, нужно объявить метод в интерфейсе сервиса и создать реализацию с помощью `serviceFactory`.
+Чтобы отправить событие, нужно объявить метод в интерфейсе сервиса и создать реализацию с помощью метода `channel.service`.
 
 ```java
 // Класс описывающий событие.
@@ -236,18 +241,15 @@ class UserRegisteredEvent {
 interface RegistrationService {
     // Метод посылающий событие.
     // Тип возвращаемого значения всегда должен быть void.
-    @Event(type = "d3c95ec0-275a-4015-aaac-d1076507e55c")
+    @Event(id = "d3c95ec0-275a-4015-aaac-d1076507e55c")
     void userRegistered(UserRegisteredEvent event);
 }
 
-// Создание вспомогательного класса, который создаёт реализации интерфейсов.
-ProtocolServiceFactory serviceFactory = new ProtocolServiceFactory(connection);
-
 // Создание реализации интерфейса.
-RegistrationService service = serviceFactory.create(RegistrationService.class);
+RegistrationService service = channel.create(RegistrationService.class);
 
 // Отправка события.
-UserRegisteredEvent умуте = new UserRegisteredEvent();
+UserRegisteredEvent event = new UserRegisteredEvent();
 event.id = "user-id";
 event.email = "test@example.com";
 event.timestamp = OffsetDateTime.now();
@@ -262,6 +264,6 @@ service.hello(event);
 Чтобы завершить работу библиотеки необходимо закрыть соединение и остановить пул потоков. В этот момент будет разорвано соединение с сервером и завершатся все ожидающие запросы.
 
 ```java
-connection.close();
+channel.close();
 executor.shutdown();
 ```
