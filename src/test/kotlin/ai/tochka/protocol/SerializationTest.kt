@@ -23,30 +23,30 @@ class SerializationTest : ProtocolTests() {
 
     @Test
     fun testEnum() {
-        clientConn.registerContentType(MessageType.COMMAND, "enum", EnumWrapper::class.java)
+        registry.registerContentType(MessageType.COMMAND, "enum", EnumWrapper::class.java)
 
         var value = EnumWrapper(TestEnum.FIRST)
-        var str = clientConn.objectMapper.writeValueAsString(value)
+        var str = registry.objectMapper.writeValueAsString(value)
         assertEquals("""{"enum":0}""", str)
 
         value = EnumWrapper(TestEnum.SECOND)
-        str = clientConn.objectMapper.writeValueAsString(value)
+        str = registry.objectMapper.writeValueAsString(value)
         assertEquals("""{"enum":1}""", str)
     }
 
     @Test
     fun testDateTime() {
-        clientConn.registerContentType(MessageType.COMMAND, "enum", DateTimeWrapper::class.java)
+        registry.registerContentType(MessageType.COMMAND, "enum", DateTimeWrapper::class.java)
 
         var value = DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochMilli(100200), ZoneId.of("UTC")))
-        var str = clientConn.objectMapper.writeValueAsString(value)
+        var str = registry.objectMapper.writeValueAsString(value)
         assertEquals("""{"value":100200}""", str)
 
         value = DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1234567), ZoneId.of("UTC")))
-        str = clientConn.objectMapper.writeValueAsString(value)
+        str = registry.objectMapper.writeValueAsString(value)
         assertEquals("""{"value":1234567}""", str)
 
-        value = clientConn.objectMapper.readValue(str)
+        value = registry.objectMapper.readValue(str)
         assertEquals(DateTimeWrapper(OffsetDateTime.ofInstant(Instant.ofEpochMilli(1234567), ZoneId.of("UTC"))), value)
     }
 }

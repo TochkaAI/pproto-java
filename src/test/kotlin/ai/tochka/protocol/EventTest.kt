@@ -27,12 +27,10 @@ class EventTest : ProtocolTests() {
 
     @Test
     fun testEvent() {
-        val serviceFactory = ProtocolServiceFactory(clientConn)
-        val client = serviceFactory.create(TestClient::class.java)
+        val client = clientChan.service(TestClient::class.java)
 
-        val listener = ProtocolListener(serverConn)
         val server = TestServer()
-        listener.connect(server, TestServer::class.java)
+        serverChan.handler(server, TestServer::class.java)
 
         client.sendEvent(123, EventContent(foo = 456))
         val received = server.received.get(60, TimeUnit.SECONDS)

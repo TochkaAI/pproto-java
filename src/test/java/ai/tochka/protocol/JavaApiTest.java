@@ -8,13 +8,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.concurrent.*;
 
 public class JavaApiTest {
@@ -38,17 +35,17 @@ public class JavaApiTest {
     }
 
     public interface JavaClient {
-        @Command(type = "java-command")
+        @Command(id = "java-command")
         AnswerContent javaCommand(@Tag Long tag, CommandContent command);
 
-        @Event(type = "java-event")
+        @Event(id = "java-event")
         void javaEvent(@Tag long tag, CommandContent event);
     }
 
     public static class JavaServer {
         public CompletableFuture<CommandContent> received = new CompletableFuture<>();
 
-        @CommandHandler(type = "java-command")
+        @CommandHandler(id = "java-command")
         public AnswerContent javaCommand(@Tag Long tag, CommandContent command) {
             Assert.assertEquals(100, command.bar);
             AnswerContent answer = new AnswerContent();
@@ -58,66 +55,77 @@ public class JavaApiTest {
             return answer;
         }
 
-        @EventHandler(type = "java-event")
+        @EventHandler(id = "java-event")
         public void javaEvent(@Tag long tag, CommandContent event) {
             Assert.assertEquals(321, tag);
             received.complete(event);
         }
     }
 
-    private ArrayList<Closeable> dispose = new ArrayList<>();
-    private ProtocolConnection serverConn;
-    private ProtocolConnection clientConn;
+    private MessageRegistry registry;
+
+    private ServerChannel listenChan;
+    private Channel serverChan;
+    private ClientChannel clientChan;
+
+    private Thread listenThread;
+    private ExecutorService serverExecutor;
+    private ExecutorService clientExecutor;
 
     @Before
-    public void beforeTest() throws ExecutionException, InterruptedException {
-        ExecutorService executor1 = Executors.newSingleThreadExecutor();
-        dispose.add(executor1::shutdown);
-
-        ExecutorService executor2 = Executors.newSingleThreadExecutor();
-        dispose.add(executor2::shutdown);
+    public void beforeTest() throws ExecutionException, InterruptedException, TimeoutException {
+        serverExecutor = Executors.newSingleThreadExecutor();
+        clientExecutor = Executors.newSingleThreadExecutor();
 
         ObjectMapper mapper = new ObjectMapper()
-                .setPropertyNamingStrategy(CustomPropertyNamingStrategy.INSTANCE)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        serverConn = ProtocolConnection.create(
-                new ProtocolProperties(),
-                new TcpServerProtocolSocketFactory(8000),
-                executor1,
-                mapper
-        );
-        dispose.add(serverConn);
-        CompletableFuture<Void> serverFuture = serverConn.start();
+        registry = new MessageRegistry(mapper);
 
-        clientConn = ProtocolConnection.create(
-                new ProtocolProperties(),
-                new TcpClientProtocolSocketFactory("127.0.0.1", 8000),
-                executor2,
-                mapper
+        listenChan = new ServerChannel(
+                8000,
+                registry,
+                serverExecutor
         );
-        dispose.add(clientConn);
-        clientConn.start().get();
-        serverFuture.get();
+        CompletableFuture<Void> serverFuture = new CompletableFuture<>();
+
+        listenThread = new Thread(() -> listenChan.listen(channel -> {
+            serverChan = channel;
+            serverFuture.complete(null);
+        }));
+        listenThread.start();
+
+        clientChan = new ClientChannel(
+                "127.0.0.1",
+                8000,
+                registry,
+                clientExecutor
+        );
+        CompletableFuture<Void> clientFuture = new CompletableFuture<>();
+        clientChan.onConnect(socket -> {
+            clientFuture.complete(null);
+        });
+
+        serverFuture.get(60, TimeUnit.SECONDS);
+        clientFuture.get(60, TimeUnit.SECONDS);
     }
 
     @After
-    public void afterTest() throws IOException {
-        ArrayList<Closeable> list = new ArrayList<>(dispose);
-        Collections.reverse(list);
-        for (Closeable closeable : list) {
-            closeable.close();
-        }
+    public void afterTest() throws IOException, InterruptedException {
+        clientChan.close();
+        serverChan.close();
+        listenChan.close();
+        listenThread.join();
+        clientExecutor.shutdown();
+        serverExecutor.shutdown();
     }
 
     @Test
     public void testJavaApi() throws InterruptedException, ExecutionException, TimeoutException {
-        ProtocolServiceFactory serviceFactory = new ProtocolServiceFactory(clientConn);
-        JavaClient client = serviceFactory.create(JavaClient.class);
+        JavaClient client = clientChan.service(JavaClient.class);
 
-        ProtocolListener listener = new ProtocolListener(serverConn);
         JavaServer server = new JavaServer();
-        listener.connect(server, JavaServer.class);
+        serverChan.handler(server, JavaServer.class);
 
         CommandContent command = new CommandContent();
         command.foo = "test string";
@@ -138,12 +146,10 @@ public class JavaApiTest {
 
     @Test
     public void testNullTag() {
-        ProtocolServiceFactory serviceFactory = new ProtocolServiceFactory(clientConn);
-        JavaClient client = serviceFactory.create(JavaClient.class);
+        JavaClient client = clientChan.service(JavaClient.class);
 
-        ProtocolListener listener = new ProtocolListener(serverConn);
         JavaServer server = new JavaServer();
-        listener.connect(server, JavaServer.class);
+        serverChan.handler(server, JavaServer.class);
 
         CommandContent command = new CommandContent();
         command.foo = "test string";
@@ -156,7 +162,7 @@ public class JavaApiTest {
 
     @Test
     public void testJavaSerialization() throws JsonProcessingException {
-        clientConn.registerContentType(MessageType.COMMAND, "serialization", CommandContent.class);
+        registry.registerContentType(MessageType.COMMAND, "serialization", CommandContent.class);
 
         CommandContent command = new CommandContent();
         command.foo = "test string";
@@ -166,7 +172,7 @@ public class JavaApiTest {
         command.testEnum = TestEnum.FIRST;
         command.nested.testEnum = TestEnum.SECOND;
 
-        String str = clientConn.getObjectMapper().writeValueAsString(command);
+        String str = registry.getObjectMapper().writeValueAsString(command);
 
         Assert.assertEquals(
                 "{\"foo\":\"test string\",\"bar\":100,\"date\":null,\"testEnum\":0,\"nested\":{\"foo\":null,\"bar\":0,\"date\":100000,\"testEnum\":1,\"nested\":null}}",

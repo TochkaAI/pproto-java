@@ -26,12 +26,10 @@ class ShutdownTest : ProtocolTests() {
 
     @Test
     fun testShutdown() {
-        val serviceFactory = ProtocolServiceFactory(clientConn)
-        val client = serviceFactory.create(TestClient::class.java)
+        val client = clientChan.service(TestClient::class.java)
 
-        val listener = ProtocolListener(serverConn)
         val server = TestServer()
-        listener.connect(server, TestServer::class.java)
+        serverChan.handler(server, TestServer::class.java)
 
         val result = CompletableFuture<Unit>()
         val requestThread = thread {
@@ -43,7 +41,7 @@ class ShutdownTest : ProtocolTests() {
             }
         }
         server.received.get(60, TimeUnit.SECONDS)
-        clientConn.close()
+        clientChan.close()
 
         val ex = try {
             result.get(60, TimeUnit.SECONDS)

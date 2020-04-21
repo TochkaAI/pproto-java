@@ -2,33 +2,27 @@ package ai.tochka.protocol
 
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Вспомогательный класс, который создаёт реализации для клиентских интерфейсов.
- * При вызове методов интерфейсов, запросы отправляются в [connection].
- */
-class ProtocolServiceFactory(
-    private val connection: ProtocolConnection
-) {
-    /**
-     * Создаёт реализацию интерфейса [iface].
-     * Все методы [iface] должны быть помечены аннотациями [Command] или [Event].
-     * Вызовы этого метода и всех методов [iface] потокобезопасены.
-     * Одновременные запросы из разных потоков к одному [connection] будут выстраиваться в очередь.
-     */
-    @Suppress("UNCHECKED_CAST", "unused")
-    fun <T> create(iface: Class<T>): T {
-        val handlers = iface.methods
-            .associate { Pair(it, createHandler(it)) }
-        val obj = Any()
+internal class ServiceFactory(private val channel: MessageChannel, private val registry: MessageRegistry) {
+    private val cache = ConcurrentHashMap<Class<*>, Any>()
 
-        return Proxy.newProxyInstance(this.javaClass.classLoader, arrayOf(iface)) { _, method, args ->
-            val handler = handlers[method]
-            if (handler != null) {
-                handler(args)
-            } else {
-                // перенаправление методов класса Object
-                method.invoke(obj, *(args ?: emptyArray()))
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> get(clazz: Class<T>): T {
+        return cache.computeIfAbsent(clazz) { iface ->
+            val handlers = iface.methods
+                .associate { Pair(it, createHandler(it)) }
+            val obj = Any()
+
+            Proxy.newProxyInstance(this.javaClass.classLoader, arrayOf(iface)) { _, method, args ->
+                val handler = handlers[method]
+                if (handler != null) {
+                    handler(args)
+                } else {
+                    // перенаправление методов класса Object
+                    method.invoke(obj, *(args ?: emptyArray()))
+                }
             }
         } as T
     }
@@ -51,18 +45,18 @@ class ProtocolServiceFactory(
             throw RuntimeException("Method [$method] cannot be a command and an event handler at the same time")
         }
 
-        val commandType: String
+        val commandId: String
         val messageType: MessageType
         val haveAnswer: Boolean
 
         when {
             commandAnnotation != null -> {
-                commandType = commandAnnotation.type
+                commandId = commandAnnotation.id
                 messageType = MessageType.COMMAND
                 haveAnswer = true
             }
             eventAnnotation != null -> {
-                commandType = eventAnnotation.type
+                commandId = eventAnnotation.id
                 messageType = MessageType.EVENT
                 haveAnswer = false
             }
@@ -76,10 +70,10 @@ class ProtocolServiceFactory(
         }
 
         if (commandIndex != null) {
-            connection.registerContentType(MessageType.COMMAND, commandType, method.parameterTypes[commandIndex])
+            registry.registerContentType(MessageType.COMMAND, commandId, method.parameterTypes[commandIndex])
         }
         if (haveAnswer) {
-            connection.registerContentType(MessageType.ANSWER, commandType, answerJavaType)
+            registry.registerContentType(MessageType.ANSWER, commandId, answerJavaType)
         }
 
         return { args ->
@@ -88,14 +82,16 @@ class ProtocolServiceFactory(
                 val content = commandIndex?.let { args?.get(it) }
                 val tag = tagIndex?.let { args?.get(it) as Long? }
 
-                id = connection.sendMessage(Message(
+                id = UUID.randomUUID().toString()
+                channel.sendMessage(Message(
+                    id = id,
                     type = messageType,
-                    command = commandType,
+                    command = commandId,
                     content = content,
                     tags = tag?.let { listOf(it) } ?: emptyList()
                 ))
                 if (haveAnswer) {
-                    val answerMessage = connection.waitForAnswer(commandType, id)
+                    val answerMessage = channel.waitForAnswer(commandId, id)
                     answerMessage.content
                 } else {
                     null
@@ -103,9 +99,11 @@ class ProtocolServiceFactory(
             } catch (ex: ProtocolException) {
                 throw ex
             } catch (ex: Throwable) {
-                throw ProtocolException("Error while processing command [$commandType] with id [$id]", ex)
+                throw ProtocolException(
+                    "Error while processing command [$commandId] with id [$id]",
+                    ex
+                )
             }
         }
     }
 }
-

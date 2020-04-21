@@ -1,30 +1,30 @@
 package ai.tochka.protocol
 
 /**
- * Помечает метод как вызов команды [type] на сервере.
+ * Помечает метод как вызов команды с идентификатором [id] на сервере.
  * Возвращаемое значение метода - ответ от сервера.
  *
  * Метод может иметь от 0 до 2 аргументов:
  * - Аргумент без аннотаций - тело запроса.
  * - Аргумент с аннотацией [Tag] - дополнительный тег.
  *
- * @see[ProtocolServiceFactory.create]
+ * @see[Channel.service]
  */
 @Target(AnnotationTarget.FUNCTION)
-annotation class Command(val type: String)
+annotation class Command(val id: String)
 
 /**
- * Помечает метод как отправку события [type] на сервер.
+ * Помечает метод как отправку события с идентификатором [id] на сервер.
  * Возвращаемое значение метода должно быть типа [Void].
  *
  * Метод может иметь от 0 до 2 аргументов:
  * - Аргумент без аннотаций - тело запроса.
  * - Аргумент с аннотацией [Tag] - дополнительный тег.
  *
- * @see[ProtocolServiceFactory.create]
+ * @see[Channel.service]
  */
 @Target(AnnotationTarget.FUNCTION)
-annotation class Event(val type: String)
+annotation class Event(val id: String)
 
 /**
  * Помечает аргумент как тег.
@@ -35,27 +35,27 @@ annotation class Event(val type: String)
 annotation class Tag
 
 /**
- * Помечает метод как обработчик запроса типа [type].
+ * Помечает метод как обработчик запроса с идентификатором [id].
  * Возвращаемое значение метода - ответ от сервера.
  *
  * Метод может иметь от 0 до 2 аргументов:
  * - Аргумент без аннотаций - тело запроса.
  * - Аргумент с аннотацией [Tag] - дополнительный тег.
  *
- * @see[ProtocolListener.connect]
+ * @see[Channel.handler]
  */
 @Target(AnnotationTarget.FUNCTION)
-annotation class CommandHandler(val type: String)
+annotation class CommandHandler(val id: String)
 
 /**
- * Помечает метод как обработчик запроса типа [type].
+ * Помечает метод как обработчик запроса с идентификатором [id].
  * Возвращаемое значение метода должно быть типа [Void].
  *
  * Метод может иметь от 0 до 2 аргументов:
  * - Аргумент без аннотаций - тело запроса.
  * - Аргумент с аннотацией [Tag] - дополнительный тег.
  *
- * @see[ProtocolListener.connect]
+ * @see[Channel.handler]
  */
 @Target(AnnotationTarget.FUNCTION)
-annotation class EventHandler(val type: String)
+annotation class EventHandler(val id: String)

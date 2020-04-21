@@ -4,48 +4,61 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.After
 import org.junit.Before
-import java.io.Closeable
+import java.net.SocketException
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 abstract class ProtocolTests {
-    protected val dispose = ArrayList<Closeable>()
-    protected lateinit var serverConn: ProtocolConnection
-    protected lateinit var clientConn: ProtocolConnection
+    protected lateinit var registry: MessageRegistry
+    protected lateinit var serverChan: Channel
+    protected lateinit var clientChan: ClientChannel
+
+    private lateinit var listenChannel: ServerChannel
+    private lateinit var listenThread: Thread
+
+    private val clientExecutor = Executors.newSingleThreadExecutor()
+    private val serverExecutor = Executors.newSingleThreadExecutor()
 
     @Before
     fun beforeTest() {
-        val executor1 = Executors.newSingleThreadExecutor()
-        dispose.add(Closeable { executor1.shutdown() })
-
-        val executor2 = Executors.newSingleThreadExecutor()
-        dispose.add(Closeable { executor2.shutdown() })
-
         val mapper = jacksonObjectMapper()
-            .setPropertyNamingStrategy(CustomPropertyNamingStrategy)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-        serverConn = ProtocolConnection.create(
-            ProtocolProperties(),
-            TcpServerProtocolSocketFactory(8000),
-            executor1,
-            mapper
-        )
-        dispose.add(serverConn)
-        val serverFuture = serverConn.start()
+        registry = MessageRegistry(mapper)
 
-        clientConn = ProtocolConnection.create(
-            ProtocolProperties(),
-            TcpClientProtocolSocketFactory("127.0.0.1", 8000),
-            executor2,
-            mapper
-        )
-        dispose.add(clientConn)
-        clientConn.start().get()
-        serverFuture.get()
+        listenChannel = ServerChannel(8000, registry, serverExecutor)
+        val serverFuture = CompletableFuture<Unit>()
+
+        listenThread = thread(name = "listen-thread") {
+            try {
+                listenChannel.listen {
+                    serverChan = it
+                    serverFuture.complete(Unit)
+                }
+            } catch (ex: SocketException) {
+                // pass
+            }
+        }
+
+        clientChan = ClientChannel("127.0.0.1", 8000, registry, clientExecutor)
+        val clientFuture = CompletableFuture<Unit>()
+        clientChan.onConnect {
+            clientFuture.complete(Unit)
+        }
+
+        clientFuture.get(60, TimeUnit.SECONDS)
+        serverFuture.get(60, TimeUnit.SECONDS)
     }
 
     @After
     fun afterTest() {
-        dispose.asReversed().forEach { it.close() }
+        clientChan.close()
+        serverChan.close()
+        listenChannel.close()
+        listenThread.join()
+        serverExecutor.shutdown()
+        clientExecutor.shutdown()
     }
 }

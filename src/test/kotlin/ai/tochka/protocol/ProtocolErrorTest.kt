@@ -49,12 +49,10 @@ class ProtocolErrorTest : ProtocolTests() {
 
     @Test(expected = ProtocolAnswerException::class)
     fun testAnswerError() {
-        val serviceFactory = ProtocolServiceFactory(clientConn)
-        val client = serviceFactory.create(TestClient::class.java)
+        val client = clientChan.service(TestClient::class.java)
 
-        val listener = ProtocolListener(serverConn)
         val server = TestServer()
-        listener.connect(server, TestServer::class.java)
+        serverChan.handler(server, TestServer::class.java)
 
         try {
             client.answerError()
@@ -70,12 +68,10 @@ class ProtocolErrorTest : ProtocolTests() {
 
     @Test(expected = ProtocolException::class)
     fun testUnhandledError() {
-        val serviceFactory = ProtocolServiceFactory(clientConn)
-        val client = serviceFactory.create(TestClient::class.java)
+        val client = clientChan.service(TestClient::class.java)
 
-        val listener = ProtocolListener(serverConn)
         val server = TestServer()
-        listener.connect(server, TestServer::class.java)
+        serverChan.handler(server, TestServer::class.java)
 
         try {
             client.unhandledError()
@@ -87,12 +83,10 @@ class ProtocolErrorTest : ProtocolTests() {
 
     @Test
     fun testEventError() {
-        val serviceFactory = ProtocolServiceFactory(clientConn)
-        val client = serviceFactory.create(TestClient::class.java)
+        val client = clientChan.service(TestClient::class.java)
 
-        val listener = ProtocolListener(serverConn)
         val server = TestServer()
-        listener.connect(server, TestServer::class.java)
+        serverChan.handler(server, TestServer::class.java)
 
         client.eventError()
         server.eventReceived.get(60, TimeUnit.SECONDS)

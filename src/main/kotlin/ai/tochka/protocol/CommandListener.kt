@@ -4,24 +4,14 @@ import org.slf4j.LoggerFactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
-/**
- * Вспомогательный класс, который регистрирует обработчики запросов и событий в [connection].
- */
-class ProtocolListener(
-    private val connection: ProtocolConnection
+internal class CommandListener(
+    private val channel: MessageChannel,
+    private val registry: MessageRegistry
 ) {
-    private val logger = LoggerFactory.getLogger(ProtocolListener::class.java)
+    private val logger =
+        LoggerFactory.getLogger(CommandListener::class.java)
 
-    /**
-     * Регистрация обработчика [service] класса [clazz].
-     * Методы [service], которые помечены [CommandHandler] или [EventHandler] будут вызываться,
-     * когда в [connection] придут запросы с соответствующими типами.
-     * Можно зарегистрировать только один обработчик для каждого типа.
-     * Вызов этого метода потокобезопасен.
-     * @see[CommandHandler]
-     * @see[EventHandler]
-     */
-    fun <T : Any> connect(service: T, clazz: Class<T>) {
+    fun <T : Any> register(handler: T, clazz: Class<T>) {
         logger.info("Processing listener [${clazz.name}]")
 
         val commandMethods = clazz.methods
@@ -31,13 +21,13 @@ class ProtocolListener(
 
         for (method in commandMethods) {
             val annotation = method.getAnnotation(CommandHandler::class.java)
-            registerMethod(service, method, annotation.type, MessageType.COMMAND)
+            registerMethod(handler, method, annotation.id, MessageType.COMMAND)
             logger.info("Command handler registered [$method]")
         }
 
         for (method in eventMethods) {
             val annotation = method.getAnnotation(EventHandler::class.java)
-            registerMethod(service, method, annotation.type, MessageType.EVENT)
+            registerMethod(handler, method, annotation.id, MessageType.EVENT)
             logger.info("Event handler registered [$method]")
         }
     }
@@ -47,13 +37,13 @@ class ProtocolListener(
         val commandIndex = commandIndex(method)
 
         if (commandIndex != null) {
-            connection.registerContentType(messageType, commandType, method.parameterTypes[commandIndex])
+            registry.registerContentType(messageType, commandType, method.parameterTypes[commandIndex])
         }
         if (messageType == MessageType.COMMAND && method.returnType != Void::class.javaPrimitiveType) {
-            connection.registerContentType(MessageType.ANSWER, commandType, method.returnType)
+            registry.registerContentType(MessageType.ANSWER, commandType, method.returnType)
         }
 
-        connection.registerCommandHandler(commandType) { message ->
+        channel.registerHandler(commandType) { message ->
             val args = Array<Any?>(method.parameterCount) { null }
             tagIndex?.let { args[tagIndex] = message.tags?.singleOrNull() }
             commandIndex?.let { args[commandIndex] = message.content }
@@ -66,13 +56,15 @@ class ProtocolListener(
                     Pair(null, inner)
                 } else {
                     logger.error("Error in command handler", inner)
-                    Pair(null, ProtocolAnswerException(group = -1, code = "", message = "Unexpected error"))
+                    Pair(null,
+                        ProtocolAnswerException(group = -1, code = "", message = "Unexpected error")
+                    )
                 }
             }
 
             if (messageType == MessageType.COMMAND) {
                 if (error != null) {
-                    connection.sendMessage(
+                    channel.sendMessage(
                         Message(
                             id = message.id,
                             type = MessageType.ANSWER,
@@ -86,7 +78,7 @@ class ProtocolListener(
                         )
                     )
                 } else {
-                    connection.sendMessage(
+                    channel.sendMessage(
                         Message(
                             id = message.id,
                             type = MessageType.ANSWER,

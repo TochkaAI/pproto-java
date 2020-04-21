@@ -6,18 +6,17 @@ import java.util.*
 
 class TagPassTest : ProtocolTests() {
     class EmptyHandler {
-        @CommandHandler(type = "tag-pass-test")
+        @CommandHandler(id = "tag-pass-test")
         fun request() = Unit
     }
 
     @Test
     fun testTagPassedThrough() {
-        val listener = ProtocolListener(serverConn)
-        listener.connect(EmptyHandler(), EmptyHandler::class.java)
+        serverChan.handler(EmptyHandler(), EmptyHandler::class.java)
 
         val id = UUID.randomUUID().toString()
 
-        clientConn.sendMessage(Message(
+        clientChan.sendMessage(Message(
             id = id,
             tags = listOf(1, 2, 3),
             status = MessageStatus.SUCCESS,
@@ -26,7 +25,7 @@ class TagPassTest : ProtocolTests() {
             content = null,
             priority = MessagePriority.NORMAL
         ))
-        val answerMsg = clientConn.waitForAnswer("tag-pass-test", id)
+        val answerMsg = clientChan.waitForAnswer("tag-pass-test", id)
 
         assertEquals(listOf<Long>(1, 2, 3), answerMsg.tags)
     }

@@ -32,12 +32,10 @@ class CommandWithContentAndTagTest : ProtocolTests() {
 
     @Test
     fun testCommandWithContentAndTag() {
-        val serviceFactory = ProtocolServiceFactory(clientConn)
-        val client = serviceFactory.create(TestClient::class.java)
+        val client = clientChan.service(TestClient::class.java)
 
-        val listener = ProtocolListener(serverConn)
         val server = TestServer()
-        listener.connect(server, TestServer::class.java)
+        serverChan.handler(server, TestServer::class.java)
 
         val answer = client.commandWithContentAndTag(
             -1000,
