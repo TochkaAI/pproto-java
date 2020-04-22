@@ -32,21 +32,27 @@ internal class CommandListener(
         }
     }
 
-    private fun registerMethod(bean: Any, method: Method, commandType: String, messageType: MessageType) {
-        val tagIndex = tagIndex(method)
-        val commandIndex = commandIndex(method)
+    private fun registerMethod(bean: Any, method: Method, commandId: String, messageType: MessageType) {
+        val params = method.parseParameters()
 
-        if (commandIndex != null) {
-            registry.registerContentType(messageType, commandType, method.parameterTypes[commandIndex])
+        for (param in params) {
+            if (param is ParameterDesc.Command) {
+                registry.registerContentType(messageType, commandId, param.type)
+            }
         }
+
         if (messageType == MessageType.COMMAND && method.returnType != Void::class.javaPrimitiveType) {
-            registry.registerContentType(MessageType.ANSWER, commandType, method.returnType)
+            registry.registerContentType(MessageType.ANSWER, commandId, method.returnType)
         }
 
-        channel.registerHandler(commandType) { message ->
-            val args = Array<Any?>(method.parameterCount) { null }
-            tagIndex?.let { args[tagIndex] = message.tags?.singleOrNull() }
-            commandIndex?.let { args[commandIndex] = message.content }
+        channel.registerHandler(commandId) { message ->
+            val args = params.map { param ->
+                when (param) {
+                    is ParameterDesc.Command -> message.content
+                    is ParameterDesc.Tag -> message.tags?.singleOrNull()
+                    is ParameterDesc.MessageId -> message.id
+                }
+            }.toTypedArray()
 
             val (result, error) = try {
                 Pair(method.invoke(bean, *args), null)

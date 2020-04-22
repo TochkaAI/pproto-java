@@ -54,7 +54,7 @@ data class Message(
     val content: Any? = null,
     val status: MessageStatus = MessageStatus.SUCCESS,
     val priority: MessagePriority = MessagePriority.NORMAL,
-    val tags: List<Long>? = null
+    val tags: List<Long?>? = null
 )
 
 data class MessageWrapper<T>(
@@ -65,7 +65,7 @@ data class MessageWrapper<T>(
 
     @JsonDeserialize(using = UnsignedLongListDeserializer::class)
     @JsonSerialize(using = UnsignedLongListSerializer::class)
-    val tags: List<Long>?
+    val tags: List<Long?>?
 )
 
 data class ContentType(

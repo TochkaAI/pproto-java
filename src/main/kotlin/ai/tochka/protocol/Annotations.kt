@@ -35,6 +35,13 @@ annotation class Event(val id: String)
 annotation class Tag
 
 /**
+ * Помечает аргумент как идентификатор сообщения.
+ * Идентфиикатор может быть только типа [String].
+ */
+@Target(AnnotationTarget.VALUE_PARAMETER)
+annotation class MessageId
+
+/**
  * Помечает метод как обработчик запроса с идентификатором [id].
  * Возвращаемое значение метода - ответ от сервера.
  *

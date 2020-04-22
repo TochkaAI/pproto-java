@@ -4,6 +4,7 @@ import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.ArrayList
 
 internal class ServiceFactory(private val channel: MessageChannel, private val registry: MessageRegistry) {
     private val cache = ConcurrentHashMap<Class<*>, Any>()
@@ -28,8 +29,7 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
     }
 
     private fun createHandler(method: Method): (Array<Any?>?) -> Any? {
-        val tagIndex = tagIndex(method)
-        val commandIndex = commandIndex(method)
+        val params = method.parseParameters()
 
         var answerJavaType = method.returnType
         var isUnitAnswer = false
@@ -61,7 +61,7 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
                 haveAnswer = false
             }
             else -> {
-                throw RuntimeException("Method [$method] must be annotated with @ai.tochka.Command or @ai.tochka.Event")
+                throw RuntimeException("Method [$method] must be annotated with @ai.tochka.protocol.Command or @ai.tochka.protocol.Event")
             }
         }
 
@@ -69,8 +69,15 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
             throw RuntimeException("Event handler [$method] cannot return an answer")
         }
 
-        if (commandIndex != null) {
-            registry.registerContentType(MessageType.COMMAND, commandId, method.parameterTypes[commandIndex])
+        for (param in params) {
+            when (param) {
+                is ParameterDesc.Command -> {
+                    registry.registerContentType(MessageType.COMMAND, commandId, param.type)
+                }
+                is ParameterDesc.MessageId -> {
+                    throw RuntimeException("Error in [$method], handlers parameters cannot have @ai.tochka.protocol.MessageId annotation")
+                }
+            }
         }
         if (haveAnswer) {
             registry.registerContentType(MessageType.ANSWER, commandId, answerJavaType)
@@ -79,8 +86,15 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
         return { args ->
             var id: String? = null
             try {
-                val content = commandIndex?.let { args?.get(it) }
-                val tag = tagIndex?.let { args?.get(it) as Long? }
+                var content: Any? = null
+                val tags = ArrayList<Long?>()
+
+                for ((index, param) in params.withIndex()) {
+                    when (param) {
+                        is ParameterDesc.Command -> content = args?.get(index)
+                        is ParameterDesc.Tag -> tags.add(args?.get(index) as Long?)
+                    }
+                }
 
                 id = UUID.randomUUID().toString()
                 channel.sendMessage(Message(
@@ -88,7 +102,7 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
                     type = messageType,
                     command = commandId,
                     content = content,
-                    tags = tag?.let { listOf(it) } ?: emptyList()
+                    tags = tags
                 ))
                 if (haveAnswer) {
                     val answerMessage = channel.waitForAnswer(commandId, id)
