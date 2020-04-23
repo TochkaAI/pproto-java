@@ -31,11 +31,12 @@ import java.util.*
 val PROTOCOL_SIGNATURE: UUID = UUID.fromString("fea6b958-dafb-4f5c-b620-fe0aafbd47e2")
 
 @Suppress("unused")
-object CommandType {
+object CommandId {
     const val PROTOCOL_COMPATIBLE = "173cbbeb-1d81-4e01-bf3c-5d06f9c878c3"
     const val UNKNOWN = "4aef29d6-5b1a-4323-8655-ef0d4f1bb79d"
     const val ERROR = "b18b98cc-b026-4bfe-8e33-e7afebfbe78b"
     const val WEB_AUTHORIZATION = "7bd4b1c1-3f8f-4bcf-b941-5a0f1e7b449f"
+    const val CLOSE_CONNECTION = "e71921fd-e5b3-4f9b-8be7-283e8bb2a531"
 }
 
 enum class MessageType(val value: Int) {
@@ -98,3 +99,8 @@ data class ContentType(
 )
 
 typealias CommandHandlerCallback = (message: Message) -> Unit
+
+data class CloseConnectionCommand(
+    val code: Int,
+    val description: String
+)

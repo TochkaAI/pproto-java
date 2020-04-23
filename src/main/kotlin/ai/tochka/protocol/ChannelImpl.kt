@@ -45,24 +45,21 @@ internal class ChannelImpl(
         val handler: CompletableFuture<Message>
     )
 
-    private val logger =
-        LoggerFactory.getLogger(ChannelImpl::class.java)
+    private val logger = LoggerFactory.getLogger(ChannelImpl::class.java)
 
     private val sync = Any()
 
     private val input = DataInputStream(socket.getInputStream())
     private val output = DataOutputStream(socket.getOutputStream())
 
-    private val answerHandlers =
-        ConcurrentHashMap<String, AnswerHandler>()
+    private val answerHandlers = ConcurrentHashMap<String, AnswerHandler>()
 
-    private val commandHandlers = ConcurrentHashMap<String, CommandHandlerCallback>()
-        .also {
-        it[CommandType.ERROR] = this::errorHandler
+    private val commandHandlers = ConcurrentHashMap<String, CommandHandlerCallback>().also {
+        it[CommandId.ERROR] = this::errorHandler
+        it[CommandId.CLOSE_CONNECTION] = this::closeConnectionHandler
     }
 
-    private val disconnectEmitter =
-        EventEmitter<Socket>(logger, executor)
+    private val disconnectEmitter = EventEmitter<Socket>(logger, executor)
 
     private val serviceFactory = ServiceFactory(this, registry)
     private val listener = CommandListener(this, registry)
@@ -121,6 +118,10 @@ internal class ChannelImpl(
     }
 
     override fun close() {
+        doClose(SocketException("Connection closed"))
+    }
+
+    private fun doClose(reason: Throwable) {
         try {
             socket.close()
         } catch (ex: Throwable) {
@@ -128,11 +129,36 @@ internal class ChannelImpl(
         }
         answerHandlers.values.forEach {
             try {
-                it.handler.completeExceptionally(SocketException("Connection closed"))
+                it.handler.completeExceptionally(reason)
             } catch (ex: Throwable) {
                 logger.error("Failed to interrupt answer handler", ex)
             }
         }
+    }
+
+    override fun close(code: Int, description: String) {
+        logger.info("Closing connection, code = $code, description = $description")
+        try {
+            val id = UUID.randomUUID().toString()
+            sendMessage(
+                Message(
+                    id = id,
+                    type = MessageType.COMMAND,
+                    command = CommandId.CLOSE_CONNECTION,
+                    content = CloseConnectionCommand(
+                        code = code,
+                        description = description
+                    )
+                )
+            )
+            waitForAnswer(
+                command = CommandId.CLOSE_CONNECTION,
+                id = id
+            )
+        } catch (ex: Throwable) {
+            logger.error("Failed to send [CloseConnection] command", ex)
+        }
+        close()
     }
 
     private fun notifyDisconnectListeners() {
@@ -161,11 +187,11 @@ internal class ChannelImpl(
             Message(
                 id = UUID.randomUUID().toString(),
                 type = MessageType.COMMAND,
-                command = CommandType.PROTOCOL_COMPATIBLE
+                command = CommandId.PROTOCOL_COMPATIBLE
             )
         )
         receiveMessage(
-            command = CommandType.PROTOCOL_COMPATIBLE
+            command = CommandId.PROTOCOL_COMPATIBLE
         )
     }
 
@@ -268,5 +294,22 @@ internal class ChannelImpl(
         } catch (ex: Throwable) {
             logger.error("Error in answer handler", ex)
         }
+    }
+
+    private fun closeConnectionHandler(message: Message) {
+        val content = message.content as CloseConnectionCommand
+        logger.info("Received connection close command, code = ${content.code}, description = ${content.description}")
+        try {
+            sendMessage(
+                Message(
+                    id = message.id,
+                    type = MessageType.ANSWER,
+                    command = message.command
+                )
+            )
+        } catch (ex: Throwable) {
+            logger.error("Failed to send [CloseConnection] answer", ex)
+        }
+        doClose(ConnectionClosedException(content.code, content.description))
     }
 }

@@ -51,5 +51,13 @@ interface Channel : MessageChannel, Closeable {
      * @see[EventHandler]
      */
     fun <T : Any> handler(handler: T, clazz: Class<T>)
+
     fun onDisconnect(block: (Socket) -> Unit): Disposable
+
+    /**
+     * Закрытие соединения с указанием причины.
+     * @param[code] Код причины. 0 - несовместимость версии протоколов.
+     * @param[description] Описание причины.
+     */
+    fun close(code: Int = 0, description: String = "")
 }

@@ -91,6 +91,12 @@ class ClientChannel @JvmOverloads constructor(
         logger.info("Connection thread stopped")
     }
 
+    override fun close(code: Int, description: String) {
+        running = false
+        channel?.close(code, description)
+        close()
+    }
+
     override fun sendMessage(message: Message) = synchronized(sync) {
         channel().sendMessage(message)
     }

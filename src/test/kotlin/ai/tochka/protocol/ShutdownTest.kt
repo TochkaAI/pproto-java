@@ -24,6 +24,7 @@
 
 package ai.tochka.protocol
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.CompletableFuture
@@ -35,9 +36,12 @@ class ShutdownTest : ProtocolTests() {
     interface TestClient {
         @Command("empty-command")
         fun emptyCommand()
+
+        @Command("close-command")
+        fun closeCommand()
     }
 
-    class TestServer {
+    class TestServer(private val channel: Channel) {
         val received = CompletableFuture<Unit>()
         val complete = CompletableFuture<Unit>()
 
@@ -46,13 +50,18 @@ class ShutdownTest : ProtocolTests() {
             received.complete(Unit)
             complete.get()
         }
+
+        @CommandHandler("close-command")
+        fun closeCommand() {
+            channel.close(code = 101, description = "Closed by command")
+        }
     }
 
     @Test
     fun testShutdown() {
         val client = clientChan.service(TestClient::class.java)
 
-        val server = TestServer()
+        val server = TestServer(serverChan)
         serverChan.handler(server, TestServer::class.java)
 
         val result = CompletableFuture<Unit>()
@@ -83,6 +92,22 @@ class ShutdownTest : ProtocolTests() {
             assertTrue("Expected ProtocolException", false)
         } catch (ex: ProtocolException) {
             // pass
+        }
+    }
+
+    @Test(expected = ConnectionClosedException::class)
+    fun testCloseWithCode() {
+        val client = clientChan.service(TestClient::class.java)
+
+        val server = TestServer(serverChan)
+        serverChan.handler(server, TestServer::class.java)
+
+        try {
+            client.closeCommand()
+        } catch (ex: ConnectionClosedException) {
+            assertEquals(101, ex.code)
+            assertEquals("Closed by command", ex.description)
+            throw ex
         }
     }
 }

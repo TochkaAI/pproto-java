@@ -47,24 +47,17 @@ class MessageRegistry(objectMapper: ObjectMapper) {
             )
         })
 
-    private val logger =
-        LoggerFactory.getLogger(MessageRegistry::class.java)
+    private val logger = LoggerFactory.getLogger(MessageRegistry::class.java)
 
     private val contentTypes = ConcurrentHashMap(
         mapOf(
-            ContentType(
-                MessageType.COMMAND,
-                CommandType.PROTOCOL_COMPATIBLE
-            ) to Any::class.java,
-            ContentType(
-                MessageType.COMMAND,
-                CommandType.ERROR
-            ) to Error::class.java
+            ContentType(MessageType.COMMAND, CommandId.PROTOCOL_COMPATIBLE) to Any::class.java,
+            ContentType(MessageType.COMMAND, CommandId.ERROR) to Error::class.java,
+            ContentType(MessageType.COMMAND, CommandId.CLOSE_CONNECTION) to CloseConnectionCommand::class.java
         )
     )
 
-    private val processedEnumClasses =
-        Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
+    private val processedEnumClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
 
     fun serialize(message: Message): String {
         var flags = 0
@@ -121,8 +114,12 @@ class MessageRegistry(objectMapper: ObjectMapper) {
                     parseContent(message, contentClazz)
                 }
                 MessageStatus.FAILED, MessageStatus.ERROR -> {
-                    val content = objectMapper.readValue(objectMapper.writeValueAsString(message.content), MessageError::class.java)
-                    Pair(null,
+                    val content = objectMapper.readValue(
+                        objectMapper.writeValueAsString(message.content),
+                        MessageError::class.java
+                    )
+                    Pair(
+                        null,
                         ProtocolAnswerException(
                             content.group,
                             content.code,
