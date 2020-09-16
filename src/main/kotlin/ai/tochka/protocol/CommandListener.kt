@@ -27,6 +27,7 @@ package ai.tochka.protocol
 import org.slf4j.LoggerFactory
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.lang.reflect.ParameterizedType
 
 internal class CommandListener(
     private val channel: MessageChannel,
@@ -65,8 +66,16 @@ internal class CommandListener(
             }
         }
 
-        if (messageType == MessageType.COMMAND && method.returnType != Void::class.javaPrimitiveType) {
-            registry.registerContentType(MessageType.ANSWER, commandId, method.returnType)
+        if (messageType == MessageType.COMMAND) {
+            var returnType = method.genericReturnType
+
+            if (returnType is ParameterizedType && returnType.rawType == Answer::class.java) {
+                returnType = returnType.actualTypeArguments[0]
+            }
+
+            if (returnType != Void::class.javaPrimitiveType) {
+                registry.registerContentType(MessageType.ANSWER, commandId, returnType as Class<*>)
+            }
         }
 
         channel.registerHandler(commandId) { message ->
@@ -92,6 +101,14 @@ internal class CommandListener(
                 }
             }
 
+            var tags = message.tags
+            var content = result
+
+            if (result is Answer<*>) {
+                tags = result.tags
+                content = result.content
+            }
+
             if (messageType == MessageType.COMMAND) {
                 if (error != null) {
                     channel.sendMessage(
@@ -113,8 +130,8 @@ internal class CommandListener(
                             id = message.id,
                             type = MessageType.ANSWER,
                             command = message.command,
-                            content = if (result == Unit) null else result,
-                            tags = message.tags
+                            content = if (content == Unit) null else content,
+                            tags = tags
                         )
                     )
                 }

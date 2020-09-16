@@ -25,6 +25,7 @@
 package ai.tochka.protocol
 
 import java.lang.reflect.Method
+import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Proxy
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -55,7 +56,16 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
     private fun createHandler(method: Method): (Array<Any?>?) -> Any? {
         val params = method.parseParameters()
 
-        var answerJavaType = method.returnType
+        val answerType = method.genericReturnType
+
+        var isGenericAnswer = false
+        var answerJavaType = if (answerType is ParameterizedType && answerType.rawType == Answer::class.java) {
+            isGenericAnswer = true
+            answerType.actualTypeArguments[0] as Class<*>
+        } else {
+            answerType as Class<*>
+        }
+
         var isUnitAnswer = false
         if (answerJavaType == Void::class.javaPrimitiveType) {
             answerJavaType = Any::class.java
@@ -130,7 +140,14 @@ internal class ServiceFactory(private val channel: MessageChannel, private val r
                 ))
                 if (haveAnswer) {
                     val answerMessage = channel.waitForAnswer(commandId, id)
-                    answerMessage.content
+                    if (isGenericAnswer) {
+                        Answer(
+                            content = answerMessage.content,
+                            tags = answerMessage.tags
+                        )
+                    } else {
+                        answerMessage.content
+                    }
                 } else {
                     null
                 }
