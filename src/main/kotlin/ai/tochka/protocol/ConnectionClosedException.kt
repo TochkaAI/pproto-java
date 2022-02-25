@@ -25,6 +25,7 @@
 package ai.tochka.protocol
 
 class ConnectionClosedException(
-    val code: Int,
+    val group: Int,
+    val code: String?,
     val description: String
-) : ProtocolException("{code: $code, description: '$description'}")
+) : ProtocolException("{group: $group, code: $code, description: '$description'}")

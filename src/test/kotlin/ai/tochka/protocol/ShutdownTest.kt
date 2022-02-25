@@ -53,7 +53,7 @@ class ShutdownTest : ProtocolTests() {
 
         @CommandHandler("close-command")
         fun closeCommand() {
-            channel.close(code = 101, description = "Closed by command")
+            channel.close(group = 101, code = "test-code", description = "Closed by command")
         }
     }
 
@@ -105,7 +105,8 @@ class ShutdownTest : ProtocolTests() {
         try {
             client.closeCommand()
         } catch (ex: ConnectionClosedException) {
-            assertEquals(101, ex.code)
+            assertEquals(101, ex.group)
+            assertEquals("test-code", ex.code)
             assertEquals("Closed by command", ex.description)
             throw ex
         }

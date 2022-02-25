@@ -101,6 +101,7 @@ data class ContentType(
 typealias CommandHandlerCallback = (message: Message) -> Unit
 
 data class CloseConnectionCommand(
-    val code: Int,
+    val group: Int,
+    val code: String?,
     val description: String
 )

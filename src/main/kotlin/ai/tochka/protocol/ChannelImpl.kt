@@ -136,7 +136,7 @@ internal class ChannelImpl(
         }
     }
 
-    override fun close(code: Int, description: String) {
+    override fun close(group: Int, code: String?, description: String) {
         logger.info("Closing connection, code = $code, description = $description")
         try {
             val id = UUID.randomUUID().toString()
@@ -146,6 +146,7 @@ internal class ChannelImpl(
                     type = MessageType.COMMAND,
                     command = CommandId.CLOSE_CONNECTION,
                     content = CloseConnectionCommand(
+                        group = group,
                         code = code,
                         description = description
                     )
@@ -310,6 +311,6 @@ internal class ChannelImpl(
         } catch (ex: Throwable) {
             logger.error("Failed to send [CloseConnection] answer", ex)
         }
-        doClose(ConnectionClosedException(content.code, content.description))
+        doClose(ConnectionClosedException(content.group, content.code, content.description))
     }
 }

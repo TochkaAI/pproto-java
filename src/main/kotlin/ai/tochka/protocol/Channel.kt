@@ -56,8 +56,9 @@ interface Channel : MessageChannel, Closeable {
 
     /**
      * Закрытие соединения с указанием причины.
-     * @param[code] Код причины. 0 - несовместимость версии протоколов.
-     * @param[description] Описание причины.
+     * @param[group] Код группы, используется для группировки сообщений
+     * @param[code] Глобальный код причины
+     * @param[description] Описание причины закрытия соединения
      */
-    fun close(code: Int = 0, description: String = "")
+    fun close(group: Int = 0, code: String? = null, description: String = "")
 }
