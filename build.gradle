@@ -3,12 +3,10 @@ plugins {
     id 'maven'
     id 'maven-publish'
     id 'org.jetbrains.kotlin.jvm' version '1.3.70'
-    id 'pl.allegro.tech.build.axion-release' version '1.11.0'
-    id "com.jfrog.bintray" version "1.8.4"
 }
 
 group 'ai.tochka'
-version scmVersion.version
+version "git describe --tags --abbrev=0 --match=release-*".execute().text.replace('release-', '').trim()
 
 sourceCompatibility = 1.8
 
@@ -54,23 +52,8 @@ artifacts {
     archives sourcesJar
 }
 
-bintray {
-    user = System.getenv('BINTRAY_USER')
-    key = System.getenv('BINTRAY_KEY')
-    publications = ['maven']
-    dryRun = project.version.endsWith('SNAPSHOT')
-    publish = true
-    pkg {
-        userOrg = 'tochkaai'
-        repo = 'pproto-java'
-        name = project.name
-        vcsUrl = "https://github.com/TochkaAI/pproto-java.git"
-        licenses = ['MIT']
-        version {
-            name = project.version
-            desc = project.name
-            released = new Date()
-            vcsTag = project.version
-        }
+task printVersion {
+    doLast {
+        println project.version
     }
 }
