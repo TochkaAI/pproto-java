@@ -1,4 +1,4 @@
-Java-реализация RPC-протокола компании [Точка Зрения](https://tochka.ai/).
+Java реализация RPC протокола [PProto](https://github.com/hkarel/PProtoCpp).
 
 # Установка
 
