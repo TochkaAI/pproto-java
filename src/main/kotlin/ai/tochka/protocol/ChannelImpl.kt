@@ -236,7 +236,6 @@ internal class ChannelImpl(
         return answerMessage
     }
 
-    @Suppress("UNCHECKED_CAST")
     private fun receiveMessage(): Pair<Message, Throwable?> {
         val str = receive()
         return registry.deserialize(str)
@@ -279,7 +278,7 @@ internal class ChannelImpl(
                 if (handler != null) {
                     handler(message)
                 } else {
-                    logger.warn("Unknown command type '${message.type}'")
+                    logger.warn("Unknown command type '${message.command}'")
                 }
             } catch (ex: Throwable) {
                 logger.error("Error in command handler", ex)
