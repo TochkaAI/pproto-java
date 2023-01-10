@@ -104,7 +104,7 @@ public class JavaApiTest {
         ObjectMapper mapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        registry = new MessageRegistry(mapper, false);
+        registry = new MessageRegistry(mapper);
 
         listenChan = new ServerChannel(
                 8000,

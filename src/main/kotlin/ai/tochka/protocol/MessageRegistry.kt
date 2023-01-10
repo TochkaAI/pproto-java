@@ -33,9 +33,10 @@ import java.time.OffsetDateTime
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-class MessageRegistry(
+class MessageRegistry
+@JvmOverloads constructor(
     objectMapper: ObjectMapper,
-    private val useWebFlags: Boolean
+    private val useWebFlags: Boolean = false
 ) {
     val objectMapper: ObjectMapper = objectMapper.copy()
         .registerKotlinModule()
