@@ -33,7 +33,10 @@ import java.time.OffsetDateTime
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-class MessageRegistry(objectMapper: ObjectMapper) {
+class MessageRegistry(
+    objectMapper: ObjectMapper,
+    private val useWebFlags: Boolean
+) {
     val objectMapper: ObjectMapper = objectMapper.copy()
         .registerKotlinModule()
         .registerModule(SimpleModule().apply {
@@ -85,7 +88,17 @@ class MessageRegistry(objectMapper: ObjectMapper) {
                 command = message.command,
                 flags = flags.toLong() and 0xFFFFFFFF,
                 content = message.content,
-                tags = message.tags
+                tags = message.tags,
+                webFlags = if (useWebFlags) {
+                    WebFlags(
+                        type = message.type,
+                        execStatus = message.status,
+                        priority = message.priority,
+                        contentFormat = "json"
+                    )
+                } else {
+                    null
+                }
             )
         )
     }
@@ -94,9 +107,16 @@ class MessageRegistry(objectMapper: ObjectMapper) {
     fun deserialize(str: String): Pair<Message, Throwable?> {
         val message = objectMapper.readValue(str, MessageWrapper::class.java) as MessageWrapper<Any?>
         val flags = message.flags.toInt()
-        val type = messageTypeOf((flags shr 0) and 0x07)
-        val status = messageStatusOf((flags shr 3) and 0x07)
-        val priority = messagePriorityOf((flags shr 6) and 0x03)
+        var type = messageTypeOf((flags shr 0) and 0x07)
+        var status = messageStatusOf((flags shr 3) and 0x07)
+        var priority = messagePriorityOf((flags shr 6) and 0x03)
+
+        val webFlags = message.webFlags
+        if (useWebFlags && webFlags != null) {
+            type = message.webFlags.type
+            status = message.webFlags.execStatus
+            priority = message.webFlags.priority
+        }
 
         if (type == MessageType.UNKNOWN) throw IllegalStateException("Unknown message received")
 

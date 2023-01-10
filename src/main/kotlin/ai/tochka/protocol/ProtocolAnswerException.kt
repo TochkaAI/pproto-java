@@ -33,4 +33,24 @@ package ai.tochka.protocol
  */
 class ProtocolAnswerException(val group: Int, val code: String, message: String) : ProtocolException(message) {
     override fun toString() = "ProtocolAnswerException(group=$group, code=$code, message=$message)"
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as ProtocolAnswerException
+
+        if (group != other.group) return false
+        if (code != other.code) return false
+        if (message != other.message) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = group
+        result = 31 * result + code.hashCode()
+        result = 31 * result + message.hashCode()
+        return result
+    }
 }

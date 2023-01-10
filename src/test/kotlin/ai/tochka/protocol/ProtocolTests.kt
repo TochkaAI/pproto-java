@@ -34,7 +34,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-abstract class ProtocolTests {
+abstract class ProtocolTests(private val useWebFlags: Boolean = false) {
     protected lateinit var registry: MessageRegistry
     protected lateinit var serverChan: Channel
     protected lateinit var clientChan: ClientChannel
@@ -50,7 +50,7 @@ abstract class ProtocolTests {
         val mapper = jacksonObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-        registry = MessageRegistry(mapper)
+        registry = MessageRegistry(mapper, useWebFlags)
 
         listenChannel = ServerChannel(8000, registry, serverExecutor)
         val serverFuture = CompletableFuture<Unit>()

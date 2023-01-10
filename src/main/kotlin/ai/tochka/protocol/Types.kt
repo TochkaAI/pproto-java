@@ -24,6 +24,7 @@
 
 package ai.tochka.protocol
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.annotation.JsonSerialize
 import java.util.*
@@ -40,22 +41,41 @@ object CommandId {
 }
 
 enum class MessageType(val value: Int) {
+    @JsonProperty("unknown")
     UNKNOWN(0),
+
+    @JsonProperty("command")
     COMMAND(1),
+
+    @JsonProperty("answer")
     ANSWER(2),
+
+    @JsonProperty("event")
     EVENT(3),
 }
 
 enum class MessagePriority(val value: Int) {
+    @JsonProperty("high")
     HIGH(0),
+
+    @JsonProperty("normal")
     NORMAL(1),
+
+    @JsonProperty("low")
     LOW(2),
 }
 
 enum class MessageStatus(val value: Int) {
+    @JsonProperty("unknown")
     UNKNOWN(0),
+
+    @JsonProperty("success")
     SUCCESS(1),
+
+    @JsonProperty("failed")
     FAILED(2),
+
+    @JsonProperty("error")
     ERROR(3),
 }
 
@@ -87,10 +107,18 @@ data class MessageWrapper<T>(
     val command: String,
     val flags: Long,
     val content: T?,
+    val webFlags: WebFlags?,
 
     @JsonDeserialize(using = UnsignedLongListDeserializer::class)
     @JsonSerialize(using = UnsignedLongListSerializer::class)
     val tags: List<Long?>?
+)
+
+data class WebFlags(
+    val type: MessageType,
+    val execStatus: MessageStatus,
+    val priority: MessagePriority,
+    val contentFormat: String
 )
 
 data class ContentType(
