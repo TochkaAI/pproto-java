@@ -23,7 +23,7 @@ class WebFlagsTest : ProtocolTests(useWebFlags = true) {
         )
         val str1 = registry.serialize(msg1)
         assertEquals(
-            """{"id":"1","command":"test","flags":2164267081,"content":{"foo":"abc","bar":123},"webFlags":{"type":"command","execStatus":"success","priority":"normal","contentFormat":"json"},"tags":null}""",
+            """{"id":"1","command":"test","flags":16785481,"content":{"foo":"abc","bar":123},"webFlags":{"type":"command","execStatus":"success","priority":"normal","contentFormat":"json"},"tags":null}""",
             str1
         )
         assertEquals(msg1, registry.deserialize(str1).first)
@@ -38,7 +38,7 @@ class WebFlagsTest : ProtocolTests(useWebFlags = true) {
         )
         val str2 = registry.serialize(msg2)
         assertEquals(
-            """{"id":"2","command":"test","flags":2164267017,"content":{"foo":"def","bar":456},"webFlags":{"type":"command","execStatus":"success","priority":"high","contentFormat":"json"},"tags":null}""",
+            """{"id":"2","command":"test","flags":16785417,"content":{"foo":"def","bar":456},"webFlags":{"type":"command","execStatus":"success","priority":"high","contentFormat":"json"},"tags":null}""",
             str2
         )
         assertEquals(msg2, registry.deserialize(str2).first)
@@ -58,7 +58,7 @@ class WebFlagsTest : ProtocolTests(useWebFlags = true) {
         )
         val str = registry.serialize(msg)
         assertEquals(
-            """{"id":"1","command":"test","flags":2164267147,"content":{"foo":"abc","bar":123},"webFlags":{"type":"event","execStatus":"success","priority":"low","contentFormat":"json"},"tags":null}""",
+            """{"id":"1","command":"test","flags":16785547,"content":{"foo":"abc","bar":123},"webFlags":{"type":"event","execStatus":"success","priority":"low","contentFormat":"json"},"tags":null}""",
             str
         )
         assertEquals(msg, registry.deserialize(str).first)
@@ -78,7 +78,7 @@ class WebFlagsTest : ProtocolTests(useWebFlags = true) {
         )
         val str1 = registry.serialize(msg1)
         assertEquals(
-            """{"id":"1","command":"test","flags":2164267082,"content":{"foo":"abc","bar":123},"webFlags":{"type":"answer","execStatus":"success","priority":"normal","contentFormat":"json"},"tags":null}""",
+            """{"id":"1","command":"test","flags":16785482,"content":{"foo":"abc","bar":123},"webFlags":{"type":"answer","execStatus":"success","priority":"normal","contentFormat":"json"},"tags":null}""",
             str1
         )
         assertEquals(msg1, registry.deserialize(str1).first)
@@ -97,7 +97,7 @@ class WebFlagsTest : ProtocolTests(useWebFlags = true) {
         )
         val str2 = registry.serialize(msg2)
         assertEquals(
-            """{"id":"2","command":"test","flags":2164267026,"content":{"group":1,"code":"foo","description":"bar"},"webFlags":{"type":"answer","execStatus":"failed","priority":"high","contentFormat":"json"},"tags":null}""",
+            """{"id":"2","command":"test","flags":16785426,"content":{"group":1,"code":"foo","description":"bar"},"webFlags":{"type":"answer","execStatus":"failed","priority":"high","contentFormat":"json"},"tags":null}""",
             str2
         )
         assertEquals(

@@ -70,17 +70,15 @@ class MessageRegistry
         flags = flags or (message.status.value shl 3)
         flags = flags or (message.priority.value shl 6)
         // 1 byte
-        if (message.tags == null) {
-            flags = flags or (1 shl 11) // tagIsEmpty
+        if (message.tags != null) {
+            flags = flags or (1 shl 11) // tagIsNotEmpty
         }
-        flags = flags or (1 shl 12) // maxTimeLifeIsEmpty
-        if (message.content == null) {
-            flags = flags or (1 shl 13) // contentIsEmpty
+        if (message.content != null) {
+            flags = flags or (1 shl 13) // contentIsNotEmpty
         }
         // 2 byte - empty
         // 3 byte
-        flags = flags or (1 shl 24) // reserved, must be 1
-        flags = flags or (1 shl 31) // flags2IsEmpty
+        flags = flags or (1 shl 24) // contentType = json
 
         val id = message.id
         return objectMapper.writeValueAsString(
